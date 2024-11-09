@@ -1,63 +1,27 @@
 (ns clj-pong.core
-  "Clj Pong"
-  (:import [com.raylib Raylib Raylib$Camera2D]
-           [com.raylib Jaylib Jaylib$Vector2])
-  (:gen-class))
+  (:import [com.badlogic.gdx ApplicationListener]
+           [com.badlogic.gdx.backends.lwjgl LwjglApplication]
+           [com.badlogic.gdx.graphics OrthographicCamera Color]
+           [com.badlogic.gdx.graphics.glutils ShapeRenderer ShapeRenderer$ShapeType]))
 
-(defn tick
-  [state]
-  (let [new-entities (mapv #(or ((:update-fn %) %) %) (:entities state))]
-    (assoc state :entities new-entities)))
+(def gdxObjects (atom {}))
 
-(defn draw
-  [state]
-  (Raylib/BeginDrawing)
-  (Raylib/ClearBackground Jaylib/RAYWHITE)
-  (Raylib/BeginMode2D (:camera state))
-  (Raylib/DrawCircle 0 0 100.0 Jaylib/GREEN)
-  (Raylib/EndMode2D)
-  (Raylib/DrawText "Hello" 190 200 20, Jaylib/VIOLET)
-  (Raylib/DrawFPS 20 20)
-  (Raylib/EndDrawing)
-  state)
+(defn app-listener []
+  (reify ApplicationListener
+    (create [this]
+      (reset! gdxObjects {:shape-renderer (ShapeRenderer/new)
+                          :camera (OrthographicCamera/new)}))
+    (render [this]
+      (doto (:shape-renderer @gdxObjects)
+        (.setProjectionMatrix (.-combined (:camera @gdxObjects)))
+        (.begin (ShapeRenderer$ShapeType/Line))
+        (.setColor Color/RED)
+        (.rect 0 0 100 100)
+        (.end)))
+    (pause [this])
+    (resume [this])
+    (resize [this width height])
+    (dispose[this])))
 
-(def init-entities
-  [{:name "Ball"
-    :velocity-x 0.0
-    :velocity-y 0.0
-    :x 0
-    :y 0
-    :update-fn #(-> %
-                    (assoc :x (+ (:x %) (:velocity-x %)))
-                    (assoc :y (+ (:y %) (:velocity-y %))))
-    :draw-fn #()}]);Raylib/DrawCircle 0 0 100.0 Jaylib/VIOLET)}]) ;(:x %) (:y %) 500.0 Jaylib/VIOLET)}])
-
-(def init-state {:entities init-entities
-                 :camera (doto
-                           (Raylib$Camera2D/new)
-                           (.offset (Jaylib$Vector2/new 200.0 200.0))
-                           (.zoom 1.0))})
-
-(defn start-game
-  []
-  (Raylib/InitWindow 400 400 "Demo")
-  (Raylib/SetTargetFPS 60)
-  (loop [should-close (Raylib/WindowShouldClose)
-         state init-state]
-    (if should-close
-      (Raylib/CloseWindow)
-      (->> state
-          (tick)
-          (draw)
-          (recur (Raylib/WindowShouldClose))))))
-
-(defn -main
-  "I don't do a whole lot ... yet."
-  [& args]
-  (future (start-game)))
-
-(comment
-  (-main)
-  (Raylib/SetTargetFPS 120)
-  (:camera init-state))
-
+(defn -main []
+  (LwjglApplication. (app-listener) "demo" 800 600))
