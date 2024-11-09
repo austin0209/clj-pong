@@ -1,6 +1,6 @@
 (ns clj-pong.core
-  (:import [com.badlogic.gdx ApplicationListener]
-           [com.badlogic.gdx.backends.lwjgl LwjglApplication]
+  (:import [com.badlogic.gdx ApplicationListener Gdx]
+           [com.badlogic.gdx.backends.lwjgl3 Lwjgl3Application Lwjgl3ApplicationConfiguration]
            [com.badlogic.gdx.graphics OrthographicCamera Color]
            [com.badlogic.gdx.graphics.glutils ShapeRenderer ShapeRenderer$ShapeType]))
 
@@ -9,6 +9,7 @@
 (defn app-listener []
   (reify ApplicationListener
     (create [this]
+      (.setTitle Gdx/graphics "clj-pong")
       (reset! gdxObjects {:shape-renderer (ShapeRenderer/new)
                           :camera (OrthographicCamera/new)}))
     (render [this]
@@ -24,4 +25,7 @@
     (dispose[this])))
 
 (defn -main []
-  (LwjglApplication. (app-listener) "demo" 800 600))
+  (let [config (doto (Lwjgl3ApplicationConfiguration/new)
+                 (.setResizable false)
+                 (.setWindowedMode 800 600))]
+    (Lwjgl3Application. (app-listener) config)))

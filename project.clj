@@ -5,7 +5,7 @@
             :url "https://www.eclipse.org/legal/epl-2.0/"}
   :dependencies [[org.clojure/clojure "1.12.0"]
                  [com.badlogicgames.gdx/gdx "1.13.0"]
-                 [com.badlogicgames.gdx/gdx-backend-lwjgl "1.13.0"]
+                 [com.badlogicgames.gdx/gdx-backend-lwjgl3 "1.13.0"]
                  [com.badlogicgames.gdx/gdx-platform "1.13.0" :classifier "natives-desktop"]]
   :main ^:skip-aot clj-pong.core
   :source-paths ["src"]
