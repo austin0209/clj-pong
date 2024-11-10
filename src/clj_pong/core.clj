@@ -8,15 +8,24 @@
 
 (def screen-width 800)
 (def screen-height 600)
+(def paddle-height 100)
+(def paddle-width 20)
 
 (def gdx-objects (atom {}))
 
-(def init-state {:entities [{:type :ball
-                             :velocity-x 300.0
-                             :velocity-y 300.0
-                             :x (* screen-width 0.5)
-                             :y (* screen-height 0.5)
-                             :radius 10.0}]})
+(def init-state {:ball         {:velocity-x 300.0
+                                :velocity-y 0
+                                :x (* screen-width 0.5)
+                                :y (* screen-height 0.5)
+                                :radius 10.0}
+                 :left-paddle  {:x 5
+                                :y (- (* screen-height 0.5) (* paddle-height 0.5))
+                                :velocity-x 0
+                                :velocity-y 0}
+                 :right-paddle {:x (- screen-width paddle-width 5)
+                                :y (- (* screen-height 0.5) (* paddle-height 0.5))
+                                :velocity-x 0
+                                :velocity-y 0}})
 
 (def global-state (atom init-state))
 
@@ -30,15 +39,29 @@
         (assoc :x (+ (:x entity) dx))
         (assoc :y (+ (:y entity) dy)))))
 
+(defn collides? [ball paddle]
+  (let [{ball-x :x ball-y :y radius :radius} ball
+        ball-left (- ball-x radius)
+        ball-right (+ ball-x radius)
+        ball-top (+ ball-y radius)
+        ball-bottom (- ball-y radius)
+        {paddle-x :x paddle-y :y} paddle
+        paddle-left paddle-x
+        paddle-right (+ paddle-x paddle-width)
+        paddle-top (+ paddle-y paddle-height)
+        paddle-bottom paddle-y]
+    (and (>= ball-top paddle-bottom)
+         (<= ball-bottom paddle-top)
+         (>= ball-right paddle-left)
+         (<= ball-left paddle-right))))
+
 (defn applyBallCollision [ball]
-  (let [left (- (:x ball) (:radius ball))
-        right (+ (:x ball) (:radius ball))
-        top (+ (:y ball) (:radius ball))
+  (let [top (+ (:y ball) (:radius ball))
         bottom (- (:y ball) (:radius ball))]
     (-> ball
         (assoc :velocity-x (cond
-                             (<= left 0) (abs (:velocity-x ball))
-                             (>= right screen-width) (- (abs (:velocity-x ball)))
+                             (collides? ball (:left-paddle @global-state)) (abs (:velocity-x ball))
+                             (collides? ball (:right-paddle @global-state)) (- (abs (:velocity-x ball)))
                              :else (:velocity-x ball)))
         (assoc :velocity-y (cond
                              (<= bottom 0) (abs (:velocity-y ball))
@@ -50,14 +73,9 @@
       (applyVelocity)
       (applyBallCollision)))
 
-(defn update-entity [entity]
-  (case (:type entity)
-    :ball (update-ball entity)
-    entity))
-
 (defn tick [state]
   (-> state
-      (assoc :entities (mapv #(update-entity %) (:entities state)))))
+      (assoc :ball (update-ball (:ball state)))))
 
 (defn draw-ball [ball]
   (doto (:shape-renderer @gdx-objects)
@@ -65,11 +83,17 @@
     (.circle (:x ball) (:y ball) (:radius ball)))
   nil)
 
+(defn draw-paddle [paddle]
+  (let [{x :x y :y} paddle]
+    (doto (:shape-renderer @gdx-objects)
+      (.setColor Color/TAN)
+      (.rect x y paddle-width paddle-height))))
+
 (defn draw [state]
-  (doall (map #(case (:type %)
-                 :ball (draw-ball %)
-                 nil)
-              (:entities state))))
+  (draw-ball (:ball state))
+  (draw-paddle (:left-paddle state))
+  (draw-paddle (:right-paddle state))
+  nil)
 
 (defn app-listener []
   (reify ApplicationListener
@@ -104,8 +128,4 @@
 
 (comment
   (future (-main))
-  (@global-state)
-  (. Gdx/graphics getDeltaTime)
-  (reset! global-state init-state)
-  (tick init-state)
-  (.set (.-position (:camera @gdx-objects)) 0.0 0.0 0.0))
+  (reset! global-state init-state))
