@@ -15,9 +15,9 @@
 (def gdx-objects (atom {}))
 
 (def init-state {:ball         {:velocity-x 300.0
-                                :velocity-y 0
+                                :velocity-y 300.0
                                 :x (* screen-width 0.5)
-                                :y (* screen-height 0.5)
+                                :y 0
                                 :radius 10.0}
                  :left-paddle  {:x 5
                                 :y (- (* screen-height 0.5) (* paddle-height 0.5))
@@ -102,11 +102,20 @@
                         (apply-velocity))]
     (assoc state :right-paddle new-paddle)))
 
+(defn should-reset? [state]
+  (let [{ball-x :x radius :radius} (:ball state)
+        ball-left (- ball-x radius)
+        ball-right (+ ball-x radius)]
+    (or (< ball-right 0)
+        (> ball-left screen-width))))
+
 (defn tick [state]
-  (-> state
-      (update-left-paddle)
-      (update-right-paddle)
-      (assoc :ball (update-ball (:ball state)))))
+  (if (should-reset? state)
+    init-state
+    (-> state
+        (update-left-paddle)
+        (update-right-paddle)
+        (assoc :ball (update-ball (:ball state))))))
 
 (defn draw-ball [ball]
   (doto (:shape-renderer @gdx-objects)
@@ -156,7 +165,3 @@
                  (.setWindowedMode screen-width screen-height)
                  (.setForegroundFPS 60))]
     (Lwjgl3Application. (app-listener) config)))
-
-(comment
-  (future (-main))
-  (reset! global-state init-state))
