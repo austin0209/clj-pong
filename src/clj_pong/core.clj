@@ -6,13 +6,16 @@
            [com.badlogic.gdx.utils.viewport FitViewport]
            [com.badlogic.gdx.graphics.glutils ShapeRenderer ShapeRenderer$ShapeType]))
 
+(def screen-width 800)
+(def screen-height 600)
+
 (def gdx-objects (atom {}))
 
 (def init-state {:entities [{:type :ball
                              :velocity-x 300.0
                              :velocity-y 300.0
-                             :x 0.0
-                             :y 0.0
+                             :x (* screen-width 0.5)
+                             :y (* screen-height 0.5)
                              :radius 10.0}]})
 
 (def global-state (atom init-state))
@@ -20,12 +23,32 @@
 (defn get-delta-time []
   (. Gdx/graphics getDeltaTime))
 
-(defn update-ball [ball]
-  (let [dx (* (:velocity-x ball) (get-delta-time))
-        dy (* (:velocity-y ball) (get-delta-time))]
+(defn applyVelocity [entity]
+  (let [dx (* (:velocity-x entity) (get-delta-time))
+        dy (* (:velocity-y entity) (get-delta-time))]
+    (-> entity
+        (assoc :x (+ (:x entity) dx))
+        (assoc :y (+ (:y entity) dy)))))
+
+(defn applyBallCollision [ball]
+  (let [left (- (:x ball) (:radius ball))
+        right (+ (:x ball) (:radius ball))
+        top (+ (:y ball) (:radius ball))
+        bottom (- (:y ball) (:radius ball))]
     (-> ball
-        (assoc :x (+ (:x ball) dx))
-        (assoc :y (+ (:y ball) dy)))))
+        (assoc :velocity-x (cond
+                             (<= left 0) (abs (:velocity-x ball))
+                             (>= right screen-width) (- (abs (:velocity-x ball)))
+                             :else (:velocity-x ball)))
+        (assoc :velocity-y (cond
+                             (<= bottom 0) (abs (:velocity-y ball))
+                             (>= top screen-height) (- (abs (:velocity-y ball)))
+                             :else (:velocity-y ball))))))
+
+(defn update-ball [ball]
+  (-> ball
+      (applyVelocity)
+      (applyBallCollision)))
 
 (defn update-entity [entity]
   (case (:type entity)
@@ -54,9 +77,10 @@
       (.setTitle Gdx/graphics "clj-pong")
       (reset! global-state init-state)
       (let [camera (OrthographicCamera/new)]
+        (.set (.-position camera) (* screen-width 0.5) (* screen-height 0.5) 0)
         (reset! gdx-objects {:shape-renderer (ShapeRenderer/new)
                              :camera camera
-                             :viewport (FitViewport/new 800 600 camera)})))
+                             :viewport (FitViewport/new screen-width screen-height camera)})))
     (render [_]
       (swap-vals! global-state tick)
       (ScreenUtils/clear Color/SKY)
@@ -74,12 +98,14 @@
 (defn -main []
   (let [config (doto (Lwjgl3ApplicationConfiguration/new)
                  (.setResizable false)
-                 (.setWindowedMode 800 600)
+                 (.setWindowedMode screen-width screen-height)
                  (.setForegroundFPS 60))]
-    (future (Lwjgl3Application. (app-listener) config))))
+    (Lwjgl3Application. (app-listener) config)))
 
 (comment
-  (-main)
+  (future (-main))
   (@global-state)
   (. Gdx/graphics getDeltaTime)
-  (reset! global-state init-state))
+  (reset! global-state init-state)
+  (tick init-state)
+  (.set (.-position (:camera @gdx-objects)) 0.0 0.0 0.0))
