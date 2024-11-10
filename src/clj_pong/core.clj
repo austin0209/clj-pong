@@ -1,5 +1,5 @@
 (ns clj-pong.core
-  (:import [com.badlogic.gdx ApplicationListener Gdx]
+  (:import [com.badlogic.gdx ApplicationListener Gdx Input$Keys]
            [com.badlogic.gdx.backends.lwjgl3 Lwjgl3Application Lwjgl3ApplicationConfiguration]
            [com.badlogic.gdx.graphics OrthographicCamera Color]
            [com.badlogic.gdx.utils ScreenUtils]
@@ -10,6 +10,7 @@
 (def screen-height 600)
 (def paddle-height 100)
 (def paddle-width 20)
+(def paddle-speed 300)
 
 (def gdx-objects (atom {}))
 
@@ -32,7 +33,7 @@
 (defn get-delta-time []
   (. Gdx/graphics getDeltaTime))
 
-(defn applyVelocity [entity]
+(defn apply-velocity [entity]
   (let [dx (* (:velocity-x entity) (get-delta-time))
         dy (* (:velocity-y entity) (get-delta-time))]
     (-> entity
@@ -55,7 +56,7 @@
          (>= ball-right paddle-left)
          (<= ball-left paddle-right))))
 
-(defn applyBallCollision [ball]
+(defn apply-ball-collision [ball]
   (let [top (+ (:y ball) (:radius ball))
         bottom (- (:y ball) (:radius ball))]
     (-> ball
@@ -70,11 +71,41 @@
 
 (defn update-ball [ball]
   (-> ball
-      (applyVelocity)
-      (applyBallCollision)))
+      (apply-velocity)
+      (apply-ball-collision)))
+
+(defn update-left-paddle [state]
+  (let [paddle (:left-paddle state)
+        new-velocity-y (cond
+                         (. Gdx/input isKeyPressed Input$Keys/W) (if (>= (+ (:y paddle) paddle-height) screen-height)
+                                                                   0
+                                                                   paddle-speed)
+                         (. Gdx/input isKeyPressed Input$Keys/S) (if (<= (:y paddle) 0)
+                                                                   0
+                                                                   (- paddle-speed))
+                         :else 0)
+        new-paddle (->> (assoc paddle :velocity-y new-velocity-y)
+                        (apply-velocity))]
+    (assoc state :left-paddle new-paddle)))
+
+(defn update-right-paddle [state]
+  (let [paddle (:right-paddle state)
+        new-velocity-y (cond
+                         (. Gdx/input isKeyPressed Input$Keys/UP) (if (>= (+ (:y paddle) paddle-height) screen-height)
+                                                                    0
+                                                                    paddle-speed)
+                         (. Gdx/input isKeyPressed Input$Keys/DOWN) (if (<= (:y paddle) 0)
+                                                                      0
+                                                                      (- paddle-speed))
+                         :else 0)
+        new-paddle (->> (assoc paddle :velocity-y new-velocity-y)
+                        (apply-velocity))]
+    (assoc state :right-paddle new-paddle)))
 
 (defn tick [state]
   (-> state
+      (update-left-paddle)
+      (update-right-paddle)
       (assoc :ball (update-ball (:ball state)))))
 
 (defn draw-ball [ball]
